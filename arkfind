@@ -28,6 +28,12 @@ import zlib
 
 import magic
 
+try:
+    import iso9660
+    isosupport = True
+except ImportError:
+    isosupport = False
+
 # Interrupt signal (Ctrl+C) handler
 def interrupt_handler(signum, stack_frame):
     print "Interrupted"
@@ -353,6 +359,48 @@ class TarWalker(ArchiveWalker):
         return member.isfile()
 
 
+
+class IsoWalker(ArchiveWalker):
+    @classmethod
+    def open_path(cls, path):
+        return closing(iso9660.ISO9660.IFS(path.joined.encode('utf8')))
+    def open_buffer(cls, buf):
+        return closing(iso9660.ISO9660.IFS(buf))
+    def get_members(self):
+        def iso_files(ifs,parent='.'):
+            lst1=ifs.readdir(parent)
+            for name,lsn,length,uk,isdir in lst1:
+                if name == '..' or name == '.':
+                    continue
+                elif isdir==2:
+                    for sub in iso_files(ifs,parent+'/'+name):
+                        yield sub
+                else:
+                    yield parent+'/'+name
+        return tuple(iso_files(self.archive))
+    def member_path(self, member):
+        p=member
+        if p.startswith('./'):
+            p=p[2:]
+        if p.endswith(';1'):
+            p=p[:-2]
+        return Path.posix(p)
+    def extract(self, member):
+        stat = self.archive.stat(member)
+        if stat['is_dir']:
+            raise TypeError
+        length,content = self.archive.seek_read(stat['LSN'],stat['sec_size'])
+        if length >= stat['size']:
+            #return content[:stat['size']]
+            return StringIO(content[:stat['size']])
+        else:
+           raise RuntimeError
+
+    def could_be_archive(self, member):
+        return True
+        #return self.archive.stat(member)['is_dir']
+
+
 class ZipWalker(ArchiveWalker):
     """ Recursively inspects the contents of ZIP archives. """
 
@@ -513,6 +561,8 @@ SEARCH_BASES = {
     'application/zip'     : ZipWalker.from_path,
     'inode/directory'     : DirectoryWalker
 }
+if isosupport:
+    SEARCH_BASES['application/x-iso9660-image']=IsoWalker.from_path
 
 # If the starting point is neither directory nor archive, it's the only result
 DEFAULT_SEARCH_BASE = NamedNode.single
