@@ -168,7 +168,7 @@ class DirectoryWalker(object):
                     mime_type = magic.from_file(fpath.joined.encode(sys.getfilesystemencoding()), mime=True)
                 except IOError as ex:
                     logging.warning(
-                        "I/O error on %s (%s)" % (concat_paths((fpath,)), ex.strerror)
+                        "I/O error on %s (%s)" % (concat_paths((fpath,)), ex.message)
                     )
                     mime_type = None
 
@@ -260,7 +260,7 @@ class ArchiveWalker(object):
             self._populate()
         except IOError as ex:
             logging.warning(
-                "I/O error on %s (%s)" % (concat_paths(self.paths), ex.strerror)
+                "I/O error on %s (%s)" % (concat_paths(self.paths), ex.message)
             )
 
     def _populate(self):
