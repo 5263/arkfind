@@ -450,7 +450,12 @@ class ZipWalker(ArchiveWalker):
         # TarFile objects. We need to read the file into memory and operate on
         # that buffer, otherwise the extracted file shares a file pointer with
         # the original archive.
-        return StringIO(self.archive.read(member))
+        try:
+            content=self.archive.read(member)
+        except RuntimeError as e:
+            #"encrypted, password required for extraction"
+            content = ''
+        return StringIO(content)
 
     def could_be_archive(self, member):
         # Files won't have a trailing '/'
